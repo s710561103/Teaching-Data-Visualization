@@ -1,0 +1,99 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(knitr)
+knitr::opts_chunk$set(warning=FALSE,message = FALSE)
+```
+
+清空環境
+```{r}
+rm(list = ls())
+library(XML)
+library(xml2)
+library(dtplyr)
+```
+
+##1.資料處理與觀察
+下載資料，並告訴R要把她視為XML語法來理解
+```{r}
+xml.url <- "http://www.dgbas.gov.tw/public/data/open/Cen/Mp04019.xml"
+xmlfile <- xmlTreeParse(xml.url)
+```
+
+將不必要的資料刪除，留下單純的資訊樹狀結構
+```{r}
+xmltop = xmlRoot(xmlfile)
+```
+
+觀察物件類別屬性
+```{r}
+class(xmltop)
+```
+
+利用str()來檢視xmltop串列的第一層訊息
+```{r}
+str(xmltop,max.level = 1)
+```
+
+利用str()來檢查歷年勞動力之教育程度節點的下一層訊息
+```{r}
+str(xmltop[[1]],max.level = 1)
+```
+
+計算某一節點往下一層有多少延伸節點
+```{r}
+xmlSize(xmltop)
+```
+
+利用xmlChildren來剪裁出延伸節點枝幹
+```{r}
+level1.branch <- xmlChildren(xmltop)
+```
+
+查看歷年勞動力之教育程度支幹
+```{r}
+level1.branch[[1]]
+```
+
+##2.非xpath法
+取出歷年勞動力之教育程度底下"國中及以下_合計_Junior_high_and_below_Total"
+```{r}
+xmlValue(level1.branch[[1]][[5]])
+```
+
+xmlApply對節點下一層的所有子節點進行相同分析
+```{r}
+out1 <- xmlApply(level1.branch[[1]],xmlValue)
+head(out1)
+```
+
+##3.xpath法
+
+重新讀取
+```{r}
+xmlfile2 <-xmlTreeParse(xml.url,useInternalNodes = TRUE)
+```
+
+用getNodeset()把枝幹取出，再將所要的變數提取
+```{r}
+out2 <- xmlApply(getNodeSet(xmlfile2,"//按年月別分_Year_and_month | //國中及以下_合計_Junior_high_and_below_Total | //高中職_合計_Senior_high_and_vocational_Total"),xmlValue)
+out2
+```
+
+轉換成data frame 的格式
+```{r}
+library(dplyr)
+out3 <- out2 %>% unlist %>% matrix(length(.),3, byrow = TRUE) %>% as.data.frame ->final 
+final
+```
+
+重新命名
+```{r}
+library(magrittr)
+final %<>% rename("按年月別分" = "V1", "國中生" = "V2" , "高中生" = "V3" )
+final
+```
+
